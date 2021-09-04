@@ -7,11 +7,11 @@ namespace Employeetime.Functions.Entities
 {
     public class EmployeetimeEntity : TableEntity
     {
-        public int Id { get; set; }
+        public int? Id { get; set; }
 
         public DateTime EntryDate { get; set; }
 
-        public string Type { get; set; }
+        public int? Type { get; set; }
 
         public bool Consolidate { get; set; }
     }

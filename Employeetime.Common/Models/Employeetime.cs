@@ -2,7 +2,7 @@
 
 namespace Employeetime.Common.Models
 {
-    public class Employeetime
+    public class EmployeeTime
     {
         public int Id { get; set; }
 
