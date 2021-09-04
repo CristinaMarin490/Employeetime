@@ -175,22 +175,37 @@ namespace Employeetime.Functions.Functions
 
         }
 
-
-        [FunctionName(nameof(DeleteregistrationID))]
-        public static async Task<IActionResult> DeleteregistrationID(
-    [HttpTrigger(AuthorizationLevel.Anonymous, "delete", Route = "DeleteregistrationID")] HttpRequest req)
-
+        [FunctionName(nameof(DeleteEntry))]
+        public static async Task<IActionResult> DeleteEntry(
+           [HttpTrigger(AuthorizationLevel.Anonymous, "delete", Route = "DeleteEntry/{rowkey}")] HttpRequest req,
+           [Table("employeetime", "EMPLOYEETIME", "{rowkey}", Connection = "AzureWebJobsStorage")] EmployeetimeEntity employeetime,
+           [Table("employeetime", Connection = "AzureWebJobsStorage")] CloudTable timeTable,
+           string rowKey,
+           ILogger log)
         {
-            return null;
+            log.LogInformation($"Delete Entry: {rowKey}, received");
+
+            if (employeetime == null)
+            {
+                return new BadRequestObjectResult(new Response
+                {
+                    IsSuccess = false,
+                    Message = "entry not found."
+                });
+            }
+
+            await timeTable.ExecuteAsync(TableOperation.Delete(employeetime));
+           
+            string message = $" Entry {employeetime.RowKey} deleted ";
+            log.LogInformation(message);
+
+            return new OkObjectResult(new Response
+            {
+                IsSuccess = true,
+                Message = message,
+                Result = employeetime
+            });
         }
-
     }
-
-
-
-
-
-
-
 }
 
