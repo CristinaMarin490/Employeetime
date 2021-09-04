@@ -39,15 +39,15 @@ namespace Employeetime.Functions.Functions
             if (CreateEntry != null && CreateEntry.Id == 0)
             {
                 log.LogInformation($"id employee {CreateEntry.Id}");
-                
+
                 return new BadRequestObjectResult(new Response
-                    {
+                {
                     IsSuccess = false,
                     Message = "to employee a event, have to send id employee"
-                    });
+                });
             }
             EmployeetimeEntity employeetimeEntity = new EmployeetimeEntity
-            {       
+            {
                 Id = CreateEntry.Id,
                 EntryDate = CreateEntry.EntryDate,
                 Type = Int16.Parse(CreateEntry.Type),
@@ -122,34 +122,75 @@ namespace Employeetime.Functions.Functions
             });
         }
 
-            [FunctionName(nameof(Getallinput))]
-             public static async Task<IActionResult> Getallinput(
-            [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "Getallinput")] HttpRequest req)
-
+        [FunctionName(nameof(GetAllEntry))]
+        public static async Task<IActionResult> GetAllEntry(
+            [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "GetAllEntry")] HttpRequest req,
+            [Table("employeetime", Connection = "AzureWebJobsStorage")] CloudTable timeTable,
+            ILogger log)
         {
+            log.LogInformation("Get all Entry");
+
+            TableQuery<EmployeetimeEntity> query = new TableQuery<EmployeetimeEntity>();
+            TableQuerySegment<EmployeetimeEntity> entrys = await timeTable.ExecuteQuerySegmentedAsync(query, null);
+
+            string message = "Retrieved all Entrys";
+            log.LogInformation(message);
+
             return new OkObjectResult(new Response
             {
                 IsSuccess = true,
-                Result = "Hola soy Cristina feliz año!",
+                Message = message,
+                Result = entrys
             });
-        }
-        [FunctionName(nameof(GetentrybyrecordID))]
-        public static async Task<IActionResult> GetentrybyrecordID(
-[HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "GetentrybyrecordID")] HttpRequest req)
 
-        {
-            return null;
         }
+
+        [FunctionName(nameof(GetAllEntryById))]
+        public static IActionResult GetAllEntryById(
+            [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "GetAllEntryById/{rowkey}")] HttpRequest req,
+            [Table("employeetime", "EMPLOYEETIME", "{rowkey}", Connection = "AzureWebJobsStorage")] EmployeetimeEntity employeetime,
+            string rowKey,
+            ILogger log)
+        {
+            log.LogInformation($"Get Entry by id: {rowKey}, received");
+
+            if (employeetime == null)
+            {
+                return new BadRequestObjectResult(new Response
+                {
+                    IsSuccess = false,
+                    Message = "entry not found."
+                });
+            }
+            
+            string message = $" Entry {employeetime.RowKey} retrieved ";
+            log.LogInformation(message);
+
+            return new OkObjectResult(new Response
+            {
+                IsSuccess = true,
+                Message = message,
+                Result = employeetime
+            });
+
+        }
+
 
         [FunctionName(nameof(DeleteregistrationID))]
         public static async Task<IActionResult> DeleteregistrationID(
-[HttpTrigger(AuthorizationLevel.Anonymous, "delete", Route = "DeleteregistrationID")] HttpRequest req)
+    [HttpTrigger(AuthorizationLevel.Anonymous, "delete", Route = "DeleteregistrationID")] HttpRequest req)
 
         {
             return null;
         }
 
-        
-
     }
+
+
+
+
+
+
+
 }
+
