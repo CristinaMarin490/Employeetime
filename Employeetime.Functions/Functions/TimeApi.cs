@@ -1,16 +1,16 @@
-using System;
-using System.IO;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Azure.WebJobs;
-using Microsoft.Azure.WebJobs.Extensions.Http;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
-using Microsoft.WindowsAzure.Storage.Table;
 using Employeetime.Common.Models;
 using Employeetime.Common.Responses;
 using Employeetime.Functions.Entities;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Azure.WebJobs;
+using Microsoft.Azure.WebJobs.Extensions.Http;
+using Microsoft.Extensions.Logging;
+using Microsoft.WindowsAzure.Storage.Table;
+using Newtonsoft.Json;
+using System;
+using System.IO;
+using System.Threading.Tasks;
 
 namespace Employeetime.Functions.Functions
 {
@@ -50,7 +50,7 @@ namespace Employeetime.Functions.Functions
             {
                 Id = CreateEntry.Id,
                 EntryDate = CreateEntry.EntryDate,
-                Type = Int16.Parse(CreateEntry.Type),
+                Type = short.Parse(CreateEntry.Type),
                 ETag = "*",
                 Consolidate = false,
                 PartitionKey = "EMPLOYEETIME",
@@ -101,7 +101,7 @@ namespace Employeetime.Functions.Functions
             {
                 Id = updateEntry.Id,
                 EntryDate = updateEntry.EntryDate,
-                Type = Int16.Parse(updateEntry.Type),
+                Type = short.Parse(updateEntry.Type),
                 ETag = "*",
                 Consolidate = false,
                 PartitionKey = "EMPLOYEETIME",
@@ -162,7 +162,7 @@ namespace Employeetime.Functions.Functions
                     Message = "entry not found."
                 });
             }
-            
+
             string message = $" Entry {employeetime.RowKey} retrieved ";
             log.LogInformation(message);
 
@@ -195,7 +195,7 @@ namespace Employeetime.Functions.Functions
             }
 
             await timeTable.ExecuteAsync(TableOperation.Delete(employeetime));
-           
+
             string message = $" Entry {employeetime.RowKey} deleted ";
             log.LogInformation(message);
 
@@ -206,6 +206,7 @@ namespace Employeetime.Functions.Functions
                 Result = employeetime
             });
         }
+
     }
 }
 
