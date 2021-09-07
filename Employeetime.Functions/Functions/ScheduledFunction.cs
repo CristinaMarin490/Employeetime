@@ -1,22 +1,20 @@
+using Employeetime.Functions.Entities;
+using Microsoft.Azure.WebJobs;
+using Microsoft.Extensions.Logging;
+using Microsoft.WindowsAzure.Storage.Table;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Employeetime.Common.Responses;
-using Employeetime.Functions.Entities;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Azure.WebJobs;
-using Microsoft.Azure.WebJobs.Extensions.Http;
-using Microsoft.Azure.WebJobs.Host;
-using Microsoft.Extensions.Logging;
-using Microsoft.WindowsAzure.Storage.Table;
+
+
 
 namespace Employeetime.Functions.Functions
 {
     public static class ScheduledFunction
     {
         [FunctionName("ScheduledFunction")]
-        public static async Task Run([TimerTrigger("0 */2 * * * *")] TimerInfo myTimer,
+        public static async Task Run([TimerTrigger("0 */5 * * * *")] TimerInfo myTimer,
           [Table("employeetime", Connection = "AzureWebJobsStorage")] CloudTable timeTable,
           [Table("consolidated", Connection = "AzureWebJobsStorage")] CloudTable consolidatedTable,
            ILogger log)
@@ -25,8 +23,7 @@ namespace Employeetime.Functions.Functions
 
             string filterTime = TableQuery.GenerateFilterConditionForBool("Consolidate", QueryComparisons.Equal, false);
             TableQuery<EmployeetimeEntity> queryTime = new TableQuery<EmployeetimeEntity>().Where(filterTime);
-            TableQuerySegment<EmployeetimeEntity> unconsolidatedEntries = await timeTable.ExecuteQuerySegmentedAsync
-            (queryTime, null);
+            TableQuerySegment<EmployeetimeEntity> unconsolidatedEntries = timeTable.ExecuteQuerySegmentedAsync(queryTime, null).Result;
             List<EmployeetimeEntity> OrderUnconsolidatedEntries = unconsolidatedEntries.OrderBy(x => x.Id).ThenBy(x
              => x.EntryDate).ToList();
             List<EmployeetimeEntity> listEmployeeConsolidate = GetListEmployeeConsolidate(OrderUnconsolidatedEntries);
@@ -39,21 +36,21 @@ namespace Employeetime.Functions.Functions
                 string FilterDateConsolite = TableQuery.GenerateFilterConditionForDate("Date", QueryComparisons.Equal, GetDay());
                 string FileterConsolidate = TableQuery.CombineFilters(FilterIdConsolite, TableOperators.And, FilterDateConsolite);
                 TableQuery<ConsolidatedEntity> queryTime2 = new TableQuery<ConsolidatedEntity>().Where(FileterConsolidate);
-                TableQuerySegment<ConsolidatedEntity> listConsolidateEntities = await consolidatedTable.ExecuteQuerySegmentedAsync(queryTime2, null);
+                TableQuerySegment<ConsolidatedEntity> listConsolidateEntities = consolidatedTable.ExecuteQuerySegmentedAsync(queryTime2, null).Result;
 
                 //listEmployeeConsolidate.Where(e=>e.Id==item.Id_Employee)
 
                 if (listConsolidateEntities.Count() > 0)
                 {
                     item.Min_Worked = item.Min_Worked + listConsolidateEntities.Results[0].Min_Worked;
-                    TableOperation addOperation = TableOperation.Replace(item);
-                    await consolidatedTable.ExecuteAsync(addOperation);
+                    TableOperation updateOperation = TableOperation.Replace(item);
+                    consolidatedTable.ExecuteAsync(updateOperation);
 
                 }
                 else
                 {
                     TableOperation addOperation = TableOperation.Insert(item);
-                    await consolidatedTable.ExecuteAsync(addOperation);
+                    consolidatedTable.ExecuteAsync(addOperation);
 
                 }
 
@@ -62,12 +59,15 @@ namespace Employeetime.Functions.Functions
             foreach (EmployeetimeEntity item in listEmployeeConsolidate)
             {
                 item.Consolidate = true;
-                TableOperation.InsertOrReplace(item);
-                TableOperation addOperation = TableOperation.Replace(item);
-                await timeTable.ExecuteAsync(addOperation);
+                //TableOperation.InsertOrReplace(item);
+                TableOperation updateOperation = TableOperation.Replace(item);
+                timeTable.ExecuteAsync(updateOperation);
             }
 
-        }
+        
+    }
+
+
         private static int GetDiferentDate(DateTime finaldate, DateTime Inicialdate)
 
         {
@@ -82,15 +82,11 @@ namespace Employeetime.Functions.Functions
             int entry = 0;//0:entrada, 1:Salida
             for (int i = 0; i < listEmployeeConsolidate.Count; i++)
             {
-                if (listEmployeeConsolidate.Count - 1 == i)///Es ultimo registro
+                if (listEmployeeConsolidate[i].Type == entry && ValidateNextItem(listEmployeeConsolidate, i))
                 {
-                    if (listEmployeeConsolidate[i].Type == entry)
+                    if (listEmployeeConsolidate[i + 1] != null)
                     {
-                        ///no hago nada
-                    }
-                    else//Salida
-                    {
-                        DateTime finaldate = listEmployeeConsolidate[i].EntryDate;
+                        DateTime finaldate = listEmployeeConsolidate[i + 1].EntryDate;
                         DateTime Inicialdate = listEmployeeConsolidate[i].EntryDate;
                         int DiferenceMinutes = GetDiferentDate(finaldate, Inicialdate);
                         ConsolidatedEntity consolidatedEntity = new ConsolidatedEntity();
@@ -98,24 +94,14 @@ namespace Employeetime.Functions.Functions
                         consolidatedEntity.Date = GetDay();
                         consolidatedEntity.Min_Worked = DiferenceMinutes;
                         consolidatedEntity.PartitionKey = "CONSOLIDATE";
+                        consolidatedEntity.ETag = "*";
                         consolidatedEntity.RowKey = Guid.NewGuid().ToString();
                         consolidatedEntities.Add(consolidatedEntity);
-
                     }
                 }
-                else if (listEmployeeConsolidate[i].Type == entry && listEmployeeConsolidate[i + 1] != null)
+                else
                 {
-                    DateTime finaldate = listEmployeeConsolidate[i + 1].EntryDate;
-                    DateTime Inicialdate = listEmployeeConsolidate[i].EntryDate;
-                    int DiferenceMinutes = GetDiferentDate(finaldate, Inicialdate);
-                    ConsolidatedEntity consolidatedEntity = new ConsolidatedEntity();
-                    consolidatedEntity.Id_Employee = listEmployeeConsolidate[i].Id;
-                    consolidatedEntity.Date = GetDay();
-                    consolidatedEntity.Min_Worked = DiferenceMinutes;
-                    consolidatedEntity.PartitionKey = "CONSOLIDATE";
-                    consolidatedEntity.ETag = "*";
-                    consolidatedEntity.RowKey = Guid.NewGuid().ToString();
-                    consolidatedEntities.Add(consolidatedEntity);
+                    //Es el ultimo registro Y es de tipo Salida; No se hace nada
                 }
             }
 
@@ -165,6 +151,7 @@ namespace Employeetime.Functions.Functions
             return ListConsolidate;
 
         }
+
     }
 }
 
